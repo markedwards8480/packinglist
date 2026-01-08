@@ -1,7 +1,7 @@
 """
 Packing List Sanitizer - Web Application
 Mark Edwards Apparel Inc.
-Single-file version for easy deployment
+Two-file version: Upload Internal PO + Customer Packing List
 """
 
 import os
@@ -42,7 +42,7 @@ INDEX_HTML = '''<!DOCTYPE html>
             min-height: 100vh;
             padding: 40px 20px;
         }
-        .container { max-width: 600px; margin: 0 auto; }
+        .container { max-width: 700px; margin: 0 auto; }
         .header { text-align: center; margin-bottom: 40px; }
         .logo { font-size: 48px; margin-bottom: 16px; }
         .header h1 { color: white; font-size: 28px; font-weight: 700; margin-bottom: 8px; }
@@ -53,39 +53,45 @@ INDEX_HTML = '''<!DOCTYPE html>
             padding: 32px;
             box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
         }
-        .upload-zone {
+        .upload-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .upload-box {
             border: 2px dashed #cbd5e1;
             border-radius: 12px;
-            padding: 48px 24px;
+            padding: 24px 16px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
             background: #f8fafc;
         }
-        .upload-zone:hover { border-color: #3b82f6; background: #eff6ff; }
-        .upload-zone.drag-over { border-color: #3b82f6; background: #dbeafe; }
-        .upload-zone.has-file { border-color: #22c55e; background: #f0fdf4; }
-        .upload-icon { font-size: 48px; margin-bottom: 16px; }
-        .upload-text { color: #475569; font-size: 16px; margin-bottom: 8px; }
-        .upload-hint { color: #94a3b8; font-size: 14px; }
-        .file-name { color: #22c55e; font-weight: 600; font-size: 16px; }
-        .form-group { margin-top: 24px; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        label { display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px; }
-        .required { color: #ef4444; }
-        input[type="text"] {
-            width: 100%;
-            padding: 12px 16px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: all 0.2s;
+        .upload-box:hover { border-color: #3b82f6; background: #eff6ff; }
+        .upload-box.drag-over { border-color: #3b82f6; background: #dbeafe; }
+        .upload-box.has-file { border-color: #22c55e; background: #f0fdf4; }
+        .upload-box.has-file .upload-icon { display: none; }
+        .upload-icon { font-size: 36px; margin-bottom: 12px; }
+        .upload-label { 
+            font-size: 14px; 
+            font-weight: 600; 
+            color: #1e40af; 
+            margin-bottom: 8px;
+            display: block;
         }
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        .upload-text { color: #475569; font-size: 13px; margin-bottom: 4px; }
+        .upload-hint { color: #94a3b8; font-size: 12px; }
+        .file-name { 
+            color: #22c55e; 
+            font-weight: 600; 
+            font-size: 14px; 
+            word-break: break-all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
+        .file-name .check { font-size: 20px; }
         .btn {
             width: 100%;
             padding: 16px 24px;
@@ -123,115 +129,292 @@ INDEX_HTML = '''<!DOCTYPE html>
         .feature-icon { font-size: 24px; margin-bottom: 8px; }
         .feature-text { font-size: 13px; color: #64748b; }
         .footer { text-align: center; margin-top: 32px; color: #64748b; font-size: 13px; }
-        #file-input { display: none; }
+        .file-input { display: none; }
+        .extracted-info {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            display: none;
+        }
+        .extracted-info.show { display: block; }
+        .extracted-info h4 { 
+            font-size: 13px; 
+            color: #0369a1; 
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .extracted-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .extracted-item {
+            font-size: 14px;
+        }
+        .extracted-label {
+            color: #64748b;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .extracted-value {
+            color: #0f172a;
+            font-weight: 600;
+        }
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 24px 0;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
+        }
+        .divider span {
+            padding: 0 16px;
+        }
         @media (max-width: 640px) {
-            .form-row { grid-template-columns: 1fr; }
+            .upload-row { grid-template-columns: 1fr; }
             .features { grid-template-columns: 1fr; }
+            .extracted-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">🔒</div>
-            <h1>Packing List Sanitizer</h1>
-            <p>Remove confidential customer info before sending to factories</p>
+            <div class="logo">[M E]</div>
+            <h1>Packing List Generator</h1>
+            <p>Upload both files to automatically generate factory packing instructions</p>
         </div>
         <div class="card">
             <form id="upload-form">
-                <div class="upload-zone" id="drop-zone">
-                    <input type="file" id="file-input" accept=".pdf" />
-                    <div class="upload-icon">📄</div>
-                    <div class="upload-text" id="upload-text">Drop customer packing list here or click to browse</div>
-                    <div class="upload-hint">PDF files only</div>
+                <div class="upload-row">
+                    <div class="upload-box" id="drop-zone-internal">
+                        <input type="file" id="file-internal" class="file-input" accept=".pdf" />
+                        <div class="upload-icon">[1]</div>
+                        <span class="upload-label">Internal PO</span>
+                        <div class="upload-text" id="text-internal">Your Mark Edwards PO</div>
+                        <div class="upload-hint">Contains PO# and Factory</div>
+                    </div>
+                    <div class="upload-box" id="drop-zone-customer">
+                        <input type="file" id="file-customer" class="file-input" accept=".pdf" />
+                        <div class="upload-icon">[2]</div>
+                        <span class="upload-label">Customer Packing List</span>
+                        <div class="upload-text" id="text-customer">Customer's packing list</div>
+                        <div class="upload-hint">Source packing details</div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <div class="form-row">
-                        <div>
-                            <label for="internal_po">Internal PO # <span class="required">*</span></label>
-                            <input type="text" id="internal_po" name="internal_po" placeholder="e.g., 219043" required />
+                
+                <div class="extracted-info" id="extracted-info">
+                    <h4>Extracted from Internal PO</h4>
+                    <div class="extracted-grid">
+                        <div class="extracted-item">
+                            <div class="extracted-label">Internal PO #</div>
+                            <div class="extracted-value" id="extracted-po">-</div>
                         </div>
-                        <div>
-                            <label for="factory_name">Factory Name</label>
-                            <input type="text" id="factory_name" name="factory_name" placeholder="e.g., NINGBO PHOENIX" />
+                        <div class="extracted-item">
+                            <div class="extracted-label">Factory</div>
+                            <div class="extracted-value" id="extracted-factory">-</div>
                         </div>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary" id="submit-btn" disabled>Generate Sanitized Packing List</button>
+                
+                <button type="submit" class="btn btn-primary" id="submit-btn" disabled>
+                    Generate Factory Packing List
+                </button>
             </form>
             <div class="status" id="status"></div>
-            <a href="#" class="btn btn-success" id="download-btn" style="display: none; text-decoration: none; text-align: center;">⬇️ Download Sanitized Document</a>
+            <a href="#" class="btn btn-success" id="download-btn" style="display: none; text-decoration: none; text-align: center;">Download Factory Packing List</a>
+            
+            <div class="divider"><span>Included in output</span></div>
+            
             <div class="features">
-                <div class="feature"><div class="feature-icon">🏢</div><div class="feature-text">Removes Customer Names</div></div>
-                <div class="feature"><div class="feature-icon">💰</div><div class="feature-text">Hides Pricing Info</div></div>
-                <div class="feature"><div class="feature-icon">📍</div><div class="feature-text">Redacts Addresses</div></div>
+                <div class="feature"><div class="feature-icon">STY</div><div class="feature-text">Style Numbers</div></div>
+                <div class="feature"><div class="feature-icon">QTY</div><div class="feature-text">Quantities</div></div>
+                <div class="feature"><div class="feature-icon">PKG</div><div class="feature-text">Pack Config</div></div>
             </div>
         </div>
-        <div class="footer">Mark Edwards Apparel Inc. • Internal Tool</div>
+        <div class="footer">Mark Edwards Apparel Inc. - Internal Tool</div>
     </div>
     <script>
-        const dropZone = document.getElementById('drop-zone');
-        const fileInput = document.getElementById('file-input');
-        const uploadText = document.getElementById('upload-text');
+        const dropZoneInternal = document.getElementById('drop-zone-internal');
+        const dropZoneCustomer = document.getElementById('drop-zone-customer');
+        const fileInternal = document.getElementById('file-internal');
+        const fileCustomer = document.getElementById('file-customer');
+        const textInternal = document.getElementById('text-internal');
+        const textCustomer = document.getElementById('text-customer');
         const submitBtn = document.getElementById('submit-btn');
         const form = document.getElementById('upload-form');
         const status = document.getElementById('status');
         const downloadBtn = document.getElementById('download-btn');
-        const internalPO = document.getElementById('internal_po');
-        let selectedFile = null;
+        const extractedInfo = document.getElementById('extracted-info');
+        const extractedPO = document.getElementById('extracted-po');
+        const extractedFactory = document.getElementById('extracted-factory');
         
-        dropZone.addEventListener('click', () => fileInput.click());
-        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-        dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('drag-over'); });
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('drag-over');
-            const files = e.dataTransfer.files;
-            if (files.length > 0 && files[0].type === 'application/pdf') handleFile(files[0]);
-        });
-        fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFile(e.target.files[0]); });
+        let selectedInternal = null;
+        let selectedCustomer = null;
         
-        function handleFile(file) {
-            selectedFile = file;
-            dropZone.classList.add('has-file');
-            uploadText.innerHTML = '<span class="file-name">✅ ' + file.name + '</span>';
+        // Setup for internal PO upload
+        setupDropZone(dropZoneInternal, fileInternal, textInternal, 'internal');
+        setupDropZone(dropZoneCustomer, fileCustomer, textCustomer, 'customer');
+        
+        function setupDropZone(zone, input, text, type) {
+            zone.addEventListener('click', () => input.click());
+            zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+            zone.addEventListener('dragleave', () => { zone.classList.remove('drag-over'); });
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('drag-over');
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type === 'application/pdf') {
+                    handleFile(files[0], type, zone, text);
+                }
+            });
+            input.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFile(e.target.files[0], type, zone, text);
+                }
+            });
+        }
+        
+        function handleFile(file, type, zone, text) {
+            zone.classList.add('has-file');
+            text.innerHTML = '<span class="file-name"><span class="check">OK</span> ' + file.name + '</span>';
+            
+            if (type === 'internal') {
+                selectedInternal = file;
+                // Extract info from internal PO
+                extractInternalPO(file);
+            } else {
+                selectedCustomer = file;
+            }
             checkFormValid();
         }
-        function checkFormValid() { submitBtn.disabled = !(selectedFile && internalPO.value.trim()); }
-        internalPO.addEventListener('input', checkFormValid);
+        
+        async function extractInternalPO(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/extract-internal', { method: 'POST', body: formData });
+                const data = await response.json();
+                
+                if (data.success) {
+                    extractedPO.textContent = data.po_number || '-';
+                    extractedFactory.textContent = data.factory_name || '-';
+                    extractedInfo.classList.add('show');
+                }
+            } catch (err) {
+                console.error('Error extracting internal PO:', err);
+            }
+        }
+        
+        function checkFormValid() {
+            submitBtn.disabled = !(selectedInternal && selectedCustomer);
+        }
         
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!selectedFile || !internalPO.value.trim()) return;
+            if (!selectedInternal || !selectedCustomer) return;
+            
             const formData = new FormData();
-            formData.append('file', selectedFile);
-            formData.append('internal_po', internalPO.value.trim());
-            formData.append('factory_name', document.getElementById('factory_name').value.trim());
+            formData.append('internal_po_file', selectedInternal);
+            formData.append('customer_file', selectedCustomer);
+            
             status.className = 'status show processing';
-            status.innerHTML = '<span class="spinner"></span> Processing packing list...';
+            status.innerHTML = '<span class="spinner"></span> Processing packing lists...';
             submitBtn.disabled = true;
             downloadBtn.style.display = 'none';
+            
             try {
-                const response = await fetch('/upload', { method: 'POST', body: formData });
+                const response = await fetch('/process', { method: 'POST', body: formData });
                 const data = await response.json();
+                
                 if (data.success) {
                     status.className = 'status show success';
-                    status.innerHTML = '✅ Successfully sanitized! Redacted: ' + data.detected.redacted.join(', ');
+                    status.innerHTML = 'Success! PO# ' + data.po_number + ' ready for download.';
                     downloadBtn.href = data.download_url;
                     downloadBtn.style.display = 'block';
                 } else {
                     status.className = 'status show error';
-                    status.innerHTML = '❌ Error: ' + data.error;
+                    status.innerHTML = 'Error: ' + data.error;
                 }
             } catch (err) {
                 status.className = 'status show error';
-                status.innerHTML = '❌ Error: ' + err.message;
+                status.innerHTML = 'Error: ' + err.message;
             }
             submitBtn.disabled = false;
         });
     </script>
 </body>
 </html>'''
+
+
+def extract_text_from_pdf(pdf_path):
+    """Extract text from PDF file"""
+    reader = PdfReader(pdf_path)
+    text = ""
+    for page in reader.pages:
+        page_text = page.extract_text()
+        if page_text:
+            text += page_text + "\n"
+    return text
+
+
+def extract_internal_po_info(text):
+    """Extract PO number and factory name from internal PO document"""
+    info = {
+        'po_number': None,
+        'factory_name': None,
+    }
+    
+    # Extract PO number - look for "Purchase Order Number XXXXXX" pattern
+    po_patterns = [
+        r'Purchase\s+Order\s+Number\s+(\d{6})',
+        r'PO\s*#?\s*:?\s*(\d{6})',
+        r'Order\s+Number[:\s]+(\d{6})',
+    ]
+    for pattern in po_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            info['po_number'] = match.group(1)
+            break
+    
+    # Also try to get PO from filename pattern if in text
+    if not info['po_number']:
+        match = re.search(r'(\d{6})\.pdf', text, re.IGNORECASE)
+        if match:
+            info['po_number'] = match.group(1)
+    
+    # Extract factory name - look for common patterns in the "To" section
+    factory_patterns = [
+        r'To\s+([A-Z][A-Z\s]+(?:IMP|EXP|IMPORT|EXPORT|TRADING|FACTORY|MANUFACTURING|MFG|CO\.?\s*,?\s*LTD))',
+        r'NINGBO\s+[\w\s]+',
+        r'SHANGHAI\s+[\w\s]+(?:CO|LTD|TRADING)',
+        r'GUANGZHOU\s+[\w\s]+(?:CO|LTD|TRADING)',
+        r'SHENZHEN\s+[\w\s]+(?:CO|LTD|TRADING)',
+    ]
+    
+    for pattern in factory_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            factory = match.group(0).strip()
+            # Clean up the factory name
+            factory = ' '.join(factory.split())  # Normalize whitespace
+            # Truncate if too long
+            if len(factory) > 40:
+                factory = factory[:40].rsplit(' ', 1)[0]
+            info['factory_name'] = factory.upper()
+            break
+    
+    return info
 
 
 class PackingListSanitizer:
@@ -257,15 +440,6 @@ class PackingListSanitizer:
 
     def __init__(self):
         self.detected_info = {}
-        
-    def extract_text_from_pdf(self, pdf_path):
-        reader = PdfReader(pdf_path)
-        text = ""
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
-        return text
     
     def detect_info(self, text):
         info = {'confidential': {}, 'keep': {}}
@@ -323,22 +497,79 @@ class PackingListSanitizer:
         
         size_order = ['S', 'S/P', 'M', 'M/M', 'L', 'L/G', 'XL', 'XL/TG', 'XXL']
         sizes = sorted(set(sizes), key=lambda x: size_order.index(x) if x in size_order else 99)
-        redacted = [field.replace('_', ' ').title() for field, values in confidential.items() if values]
         
         html = f'''<!DOCTYPE html>
-<html><head><title>Factory Packing Instructions - PO {internal_po}</title>
+<html><head>
+<meta charset="UTF-8">
+<title>Factory Packing Instructions - PO {internal_po}</title>
 <style>
-*{{margin:0;padding:0;box-sizing:border-box}}body{{font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:40px;background:#f8fafc;color:#1e293b}}.document{{max-width:800px;margin:0 auto;background:white;padding:40px;border-radius:12px;box-shadow:0 4px 6px -1px rgb(0 0 0/0.1)}}.header{{border-bottom:3px solid #1e40af;padding-bottom:24px;margin-bottom:24px}}.header h1{{color:#1e40af;font-size:24px;margin-bottom:8px}}.header-subtitle{{color:#64748b;font-size:14px}}.meta-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:20px;padding:20px;background:#f1f5f9;border-radius:8px}}.meta-label{{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}}.meta-value{{font-size:18px;font-weight:700;color:#0f172a}}.section{{margin:28px 0;padding:24px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0}}.section-title{{font-weight:700;color:#1e40af;margin-bottom:16px;font-size:14px;text-transform:uppercase;letter-spacing:0.5px}}.data-grid{{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}}.data-label{{font-size:12px;color:#64748b;margin-bottom:2px}}.data-value{{font-size:15px;color:#0f172a;font-weight:500}}.colors-grid{{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}}.color-tag{{background:#e0e7ff;color:#3730a3;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:500}}.sizes-grid{{display:flex;gap:8px;margin-top:8px}}.size-tag{{background:#1e40af;color:white;padding:8px 16px;border-radius:6px;font-weight:700;font-size:14px}}.notice{{background:#fef3c7;border:1px solid #f59e0b;padding:16px;border-radius:8px;margin-top:28px}}.notice-title{{font-weight:700;color:#92400e;font-size:13px;margin-bottom:6px}}.notice-text{{font-size:13px;color:#78350f}}.footer{{margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}}.stamp{{display:inline-block;border:2px solid #dc2626;color:#dc2626;padding:4px 12px;border-radius:4px;font-weight:700;font-size:11px;transform:rotate(-3deg);margin-left:12px}}@media print{{body{{background:white;padding:20px}}.document{{box-shadow:none}}}}
-</style></head><body><div class="document">
-<div class="header"><h1>🏭 FACTORY PACKING INSTRUCTIONS <span class="stamp">CONFIDENTIAL</span></h1><div class="header-subtitle">Mark Edwards Apparel Inc.</div>
-<div class="meta-grid"><div class="meta-item"><div class="meta-label">Internal PO Number</div><div class="meta-value">{internal_po}</div></div><div class="meta-item"><div class="meta-label">Factory</div><div class="meta-value">{factory_name or 'As Assigned'}</div></div><div class="meta-item"><div class="meta-label">Date Generated</div><div class="meta-value">{datetime.now().strftime('%Y-%m-%d')}</div></div></div></div>
-<div class="section"><div class="section-title">📦 Product Information</div><div class="data-grid"><div class="data-item"><div class="data-label">Vendor Style</div><div class="data-value">{vendor_style}</div></div><div class="data-item"><div class="data-label">Commodity</div><div class="data-value">Top</div></div></div>
-<div style="margin-top:20px"><div class="data-label">Colors ({len(clean_colors)} variants)</div><div class="colors-grid">{"".join(f'<span class="color-tag">{c}</span>' for c in clean_colors[:12])}</div></div>
-<div style="margin-top:20px"><div class="data-label">Sizes</div><div class="sizes-grid">{"".join(f'<span class="size-tag">{s}</span>' for s in sizes[:6])}</div></div></div>
-<div class="section"><div class="section-title">📋 Packing Configuration</div><div class="data-grid"><div class="data-item"><div class="data-label">Units Per Carton</div><div class="data-value">{units_per_carton}</div></div><div class="data-item"><div class="data-label">Total Cartons</div><div class="data-value">{total_cartons}</div></div><div class="data-item"><div class="data-label">Total Units</div><div class="data-value">{total_units}</div></div><div class="data-item"><div class="data-label">Prepack Ratio</div><div class="data-value">2-2-1-1 (S-M-L-XL)</div></div></div></div>
-<div class="section"><div class="section-title">🏷️ Carton Marking Instructions</div><div class="data-item"><div class="data-label">Reference on all cartons</div><div class="data-value" style="font-size:18px">PO# {internal_po}</div></div><p style="margin-top:12px;font-size:13px;color:#64748b">All cartons must be clearly marked with the above PO number. Do not include any customer or buyer information on carton labels.</p></div>
-<div class="notice"><div class="notice-title">⚠️ CONFIDENTIAL INFORMATION REMOVED</div><div class="notice-text">The following fields have been redacted from the original customer packing list: <strong>{', '.join(redacted) if redacted else 'None detected'}</strong></div></div>
-<div class="footer">Generated by Mark Edwards Apparel Packing List Sanitizer • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div></div></body></html>'''
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:40px;background:#f8fafc;color:#1e293b}}
+.document{{max-width:800px;margin:0 auto;background:white;padding:40px;border-radius:12px;box-shadow:0 4px 6px -1px rgb(0 0 0/0.1)}}
+.header{{border-bottom:3px solid #1e40af;padding-bottom:24px;margin-bottom:24px}}
+.header h1{{color:#1e40af;font-size:24px;margin-bottom:8px}}
+.header-subtitle{{color:#64748b;font-size:14px}}
+.meta-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:20px;padding:20px;background:#f1f5f9;border-radius:8px}}
+.meta-label{{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}}
+.meta-value{{font-size:18px;font-weight:700;color:#0f172a}}
+.section{{margin:28px 0;padding:24px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0}}
+.section-title{{font-weight:700;color:#1e40af;margin-bottom:16px;font-size:14px;text-transform:uppercase;letter-spacing:0.5px}}
+.data-grid{{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}}
+.data-label{{font-size:12px;color:#64748b;margin-bottom:2px}}
+.data-value{{font-size:15px;color:#0f172a;font-weight:500}}
+.colors-grid{{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}}
+.color-tag{{background:#e0e7ff;color:#3730a3;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:500}}
+.sizes-grid{{display:flex;gap:8px;margin-top:8px}}
+.size-tag{{background:#1e40af;color:white;padding:8px 16px;border-radius:6px;font-weight:700;font-size:14px}}
+.footer{{margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}}
+@media print{{body{{background:white;padding:20px}}.document{{box-shadow:none}}}}
+</style>
+</head>
+<body>
+<div class="document">
+<div class="header">
+<h1>FACTORY PACKING INSTRUCTIONS</h1>
+<div class="header-subtitle">Mark Edwards Apparel Inc.</div>
+<div class="meta-grid">
+<div class="meta-item"><div class="meta-label">PO Number</div><div class="meta-value">{internal_po}</div></div>
+<div class="meta-item"><div class="meta-label">Factory</div><div class="meta-value">{factory_name or 'As Assigned'}</div></div>
+<div class="meta-item"><div class="meta-label">Date</div><div class="meta-value">{datetime.now().strftime('%Y-%m-%d')}</div></div>
+</div>
+</div>
+
+<div class="section">
+<div class="section-title">Product Information</div>
+<div class="data-grid">
+<div class="data-item"><div class="data-label">Vendor Style</div><div class="data-value">{vendor_style}</div></div>
+<div class="data-item"><div class="data-label">Commodity</div><div class="data-value">Top</div></div>
+</div>
+<div style="margin-top:20px"><div class="data-label">Colors ({len(clean_colors)} variants)</div>
+<div class="colors-grid">{"".join(f'<span class="color-tag">{c}</span>' for c in clean_colors[:12])}</div></div>
+<div style="margin-top:20px"><div class="data-label">Sizes</div>
+<div class="sizes-grid">{"".join(f'<span class="size-tag">{s}</span>' for s in sizes[:6])}</div></div>
+</div>
+
+<div class="section">
+<div class="section-title">Packing Configuration</div>
+<div class="data-grid">
+<div class="data-item"><div class="data-label">Units Per Carton</div><div class="data-value">{units_per_carton}</div></div>
+<div class="data-item"><div class="data-label">Total Cartons</div><div class="data-value">{total_cartons}</div></div>
+<div class="data-item"><div class="data-label">Total Units</div><div class="data-value">{total_units}</div></div>
+<div class="data-item"><div class="data-label">Prepack Ratio</div><div class="data-value">2-2-1-1 (S-M-L-XL)</div></div>
+</div>
+</div>
+
+<div class="section">
+<div class="section-title">Carton Marking Instructions</div>
+<div class="data-item"><div class="data-label">Reference on all cartons</div>
+<div class="data-value" style="font-size:18px">PO# {internal_po}</div></div>
+<p style="margin-top:12px;font-size:13px;color:#64748b">All cartons must be clearly marked with the above PO number.</p>
+</div>
+
+<div class="footer">Mark Edwards Apparel Inc. - Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</div>
+</div>
+</body>
+</html>'''
         return html
 
 
@@ -347,23 +578,15 @@ def index():
     return Response(INDEX_HTML, mimetype='text/html')
 
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
+@app.route('/extract-internal', methods=['POST'])
+def extract_internal():
+    """Extract PO number and factory from internal PO file"""
     if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
+        return jsonify({'success': False, 'error': 'No file'}), 400
     
     file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
     if not allowed_file(file.filename):
-        return jsonify({'error': 'Only PDF files are allowed'}), 400
-    
-    internal_po = request.form.get('internal_po', '').strip()
-    factory_name = request.form.get('factory_name', '').strip()
-    
-    if not internal_po:
-        return jsonify({'error': 'Internal PO number is required'}), 400
+        return jsonify({'success': False, 'error': 'Invalid file type'}), 400
     
     try:
         unique_id = str(uuid.uuid4())[:8]
@@ -371,21 +594,85 @@ def upload_file():
         upload_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{unique_id}_{filename}")
         file.save(upload_path)
         
-        sanitizer = PackingListSanitizer()
-        text = sanitizer.extract_text_from_pdf(upload_path)
-        info = sanitizer.detect_info(text)
-        html = sanitizer.generate_factory_document(internal_po, factory_name)
+        text = extract_text_from_pdf(upload_path)
+        info = extract_internal_po_info(text)
         
-        output_filename = f"Factory_Packing_PO_{internal_po}_{unique_id}.html"
-        output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(html)
+        # Also try to get PO from filename
+        if not info['po_number']:
+            po_match = re.search(r'(\d{6})', filename)
+            if po_match:
+                info['po_number'] = po_match.group(1)
         
         os.remove(upload_path)
         
         return jsonify({
             'success': True,
+            'po_number': info['po_number'],
+            'factory_name': info['factory_name'],
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/process', methods=['POST'])
+def process_files():
+    """Process both files and generate sanitized output"""
+    if 'internal_po_file' not in request.files or 'customer_file' not in request.files:
+        return jsonify({'error': 'Both files are required'}), 400
+    
+    internal_file = request.files['internal_po_file']
+    customer_file = request.files['customer_file']
+    
+    if not allowed_file(internal_file.filename) or not allowed_file(customer_file.filename):
+        return jsonify({'error': 'Only PDF files are allowed'}), 400
+    
+    try:
+        unique_id = str(uuid.uuid4())[:8]
+        
+        # Save internal PO file
+        internal_filename = secure_filename(internal_file.filename)
+        internal_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{unique_id}_internal_{internal_filename}")
+        internal_file.save(internal_path)
+        
+        # Save customer file
+        customer_filename = secure_filename(customer_file.filename)
+        customer_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{unique_id}_customer_{customer_filename}")
+        customer_file.save(customer_path)
+        
+        # Extract info from internal PO
+        internal_text = extract_text_from_pdf(internal_path)
+        internal_info = extract_internal_po_info(internal_text)
+        
+        # Also try to get PO from filename
+        if not internal_info['po_number']:
+            po_match = re.search(r'(\d{6})', internal_filename)
+            if po_match:
+                internal_info['po_number'] = po_match.group(1)
+        
+        po_number = internal_info['po_number'] or 'UNKNOWN'
+        factory_name = internal_info['factory_name'] or ''
+        
+        # Process customer packing list
+        customer_text = extract_text_from_pdf(customer_path)
+        sanitizer = PackingListSanitizer()
+        info = sanitizer.detect_info(customer_text)
+        html = sanitizer.generate_factory_document(po_number, factory_name)
+        
+        # Save output
+        output_filename = f"Factory_Packing_PO_{po_number}_{unique_id}.html"
+        output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(html)
+        
+        # Cleanup
+        os.remove(internal_path)
+        os.remove(customer_path)
+        
+        return jsonify({
+            'success': True,
             'download_url': url_for('download_file', filename=output_filename),
+            'po_number': po_number,
+            'factory_name': factory_name,
             'detected': {
                 'redacted': list(info['confidential'].keys()),
                 'kept': list(info['keep'].keys()),
